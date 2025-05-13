@@ -1,22 +1,20 @@
-KEYWORD = "legal thc flower shipping"
-BLACKLIST_FILE = "black.txt"
-SEARCH_NUM = 100
-
-import argparse
 import sys
+import time
+from pathlib import Path
 from urllib.parse import urlparse
 
+import pandas as pd
+import typer
 from googlesearch import search
+from rich import print
+
+app = typer.Typer()
 
 
-def extract_base_url(url):
-    """Extract base URL from a full URL."""
-    parsed = urlparse(url)
-    return parsed.netloc
-
-
-def load_blacklist(filepath):
-    """Load blacklist base URLs from file."""
+def load_blacklist(filepath: Path) -> set[str]:
+    """
+    Load blacklist base URLs from file.
+    """
     blacklist = set()
     try:
         with open(filepath, "r") as f:
@@ -25,38 +23,36 @@ def load_blacklist(filepath):
                 if line:
                     blacklist.add(line)
     except FileNotFoundError:
-        print(
-            f"Warning: Blacklist file '{filepath}' not found. Continuing without blacklist."
-        )
+        print(f"[WARN] Blacklist '{filepath}' not found. Creating empty blacklist.")
+        Path(filepath).touch()
     except Exception as e:
-        print(f"Failed to read blacklist file: {e}")
+        print(f"[ERROR] Failed to read blacklist file: {e}")
         sys.exit(1)
     return blacklist
 
 
-def search_with_fallback(keyword, search_num):
-    """Try different parameter names for googlesearch.search for compatibility."""
-    try:
-        return search(keyword, num_results=search_num)
-    except TypeError:
-        try:
-            return search(keyword, num=search_num)
-        except TypeError:
-            return search(keyword, stop=search_num)
-        except Exception as e:
-            print(f"Unknown error: {e}")
-            raise
-    except Exception as e:
-        print(f"Unknown error: {e}")
-        raise
+@app.command()
+def autosearch(
+    keyword: str,
+    num_search: int = 50,
+    blacklist_file: Path = Path("blacklist.txt"),
+    output: Path = Path("results.csv"),
+):
+    """
+    Search for a keyword and save results to CSV.
+    """
+    blacklist = load_blacklist(blacklist_file)
+    results = []
+    for result in search(keyword, num_results=num_search):
+        if urlparse(result).netloc in blacklist:
+            continue
+        print(f"[INFO] {result}")
+        results.append(result)
+        time.sleep(0.01)
+    df = pd.DataFrame(results, columns=["url"])
+    df.to_csv(output, index=False)
+    print(f"[INFO] Results saved to [bold green]{output}[/bold green]")
 
 
-blacklist = set()
-if BLACKLIST_FILE:
-    blacklist = load_blacklist(BLACKLIST_FILE)
-
-for result in search_with_fallback(KEYWORD, SEARCH_NUM):
-    base = extract_base_url(result)
-    if base in blacklist:
-        continue
-    print(result)
+if __name__ == "__main__":
+    app()

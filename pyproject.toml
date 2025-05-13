@@ -1,9 +1,13 @@
 [project]
 name = "autosearch"
 version = "0.1.0"
-description = "Add your description here"
+description = "Automated search"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "click==8.1.7",
     "googlesearch-python",
+    "pandas>=2.2.3",
+    "pyinstaller>=6.13.0",
+    "typer>=0.15.3",
 ]
